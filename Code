@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+#
+# Created by: Trent Hodgins
+# Created on: Nov 2021
+# This will display the "Lunar Trial" program on EdgeBadge
+
+import ugame
+import stage
+import time
+import supervisor
+
+import constants
+
+
+def menu_scene():
+    # this function is the menu scene 
+    
+    # this image banks for CircuitPython
+    image_background_assets = stage.Bank.from_bmp16("outerspace_theme.bmp")   
+
+    # add text objects
+    text = []
+    text1 = stage.Text(width=30, height=15, font=None, buffer=None)
+    text1.move(40, 10)
+    text1.text("Lunar Trial")
+    text.append(text1)
+    
+    text2 = stage.Text(width=28, height=12, font=None, buffer=None)
+    text2.move(40, 110)
+    text2.text("PRESS START")
+    text.append(text2)
+    
+    # sets the background to image 0 in the image bank
+    background = stage.Grid(image_background_assets, constants.SCREEN_GRID_X, constants.SCREEN_GRID_Y)
+    
+    # create a stage for the background to show up on
+    # and set the framerate to 60fps
+    game = stage.Stage(ugame.display, constants.FPS)
+    # set the layers, items show up in order
+    game.layers = text + [background]
+    # render the background and initial location of sprite list
+    # most likely I will only render background once per scene
+    game.render_block()
+    
+    # repeat forever, game loop
+    while True: 
+        # get user input
+        keys = ugame.buttons.get_pressed()
+        
+        # Start button selected
+        if keys & ugame.K_START:
+            time.sleep(0.5)
+            game_scene()
+            
+        # update game logic
+        game.tick() # wait until refresh rate finishes
+
+def game_scene():
+    # this function is for the main game game_scene
+
+    # health indicators
+    player_health = 10 
+    enemy_health = 10
+    
+    player_health_text = stage.Text(width = 15, height = 10)
+    player_health_text.clear()
+    player_health_text.cursor(0, 0)
+    player_health_text.move(1, 1)
+    player_health_text.text("Player: {0}".format(player_health))
+    
+    enemy_health_text = stage.Text(width = 15, height = 10)
+    enemy_health_text.clear()
+    enemy_health_text.cursor(0, 1)
+    enemy_health_text.move(1, 1)
+    enemy_health_text.text("Enemy: {0}".format(enemy_health))
+
+    # image banks for CircuitPython
+    image_background_assets = stage.Bank.from_bmp16("outerspace_theme.bmp")
+    image_sprites_assets = stage.Bank.from_bmp16("Assets.bmp")
+    
+    # buttons that you want to keep state information on
+    a_button = constants.button_state["button_up"]
+    
+    # get sound ready
+    enemy_hit = open("enemyhit.wav", 'rb')
+    player_hit = open("playerhit.wav", 'rb')
+    sound = ugame.audio
+    sound.stop()
+    sound.mute(False)
+    
+    # set background to image 0 in the image Bank
+    # and the side (10x8 tiles of size 16x16)
+    background = stage.Grid(image_background_assets, constants.SCREEN_GRID_X, constants.SCREEN_GRID_Y)
+    player = stage.Sprite(image_sprites_assets, 5, constants.PLAYER_X, constants.PLAYER_Y)
+    enemy = stage.Sprite(image_sprites_assets, 6, constants.ENEMY_X, constants.ENEMY_Y)
+    
+     # create list of lasers for when I shoot
+    lasers = []
+    for laser_number in range(constants.TOTAL_NUMBER_OF_LASERS):
+        a_single_laser = stage.Sprite(image_sprites_assets, 8, constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)
+        lasers.append(a_single_laser)
+        
+    fire_balls = []
+    for fire_ball_number in range(constants.TOTAL_NUMBER_OF_FIRE_BALLS):
+        a_single_fire_ball = stage.Sprite(image_sprites_assets, 7, constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)
+        fire_balls.append(a_single_fire_ball)
+
+    # create a stage for the background to show up on
+    # and set the frame rate to 60fps
+    game = stage.Stage(ugame.display, constants.FPS)
+    # set the layers of all sprites, items show up in order
+    game.layers = [player_health_text] + [enemy_health_text] + lasers + fire_balls + [player] + [enemy] + [background]
+    # render all sprites 
+    # most likely I will render the background once per game scene 
+    game.render_block()
+    
+    # repeat forever, game loop
+    while True:
+        # get user input
+        keys = ugame.buttons.get_pressed()
+        
+        if keys & ugame.K_UP:
+            if player.y >= 0:
+                player.move(player.x, player.y - constants.MOVEMENT_SPEED)
+            else:
+                player.move(player.x, 0)
+        if keys & ugame.K_DOWN:
+            if player.y <= constants.SCREEN_Y - constants.SPRITE_SIZE:
+                player.move(player.x, player.y + constants.MOVEMENT_SPEED)
+            else: 
+                player.move(player.x, constants.SCREEN_Y - constants.SPRITE_SIZE)
+        
+        if keys & ugame.K_O != 0: # Player button A to fire laser
+            if a_button == constants.button_state["button_up"]:
+                a_button = constants.button_state["button_just_pressed"]
+            elif a_button == constants.button_state["button_just_pressed"]:
+                a_button = constants.button_state["button_still_pressed"]
+        else:
+            if a_button == constants.button_state["button_still_pressed"]:
+                a_button = constants.button_state["button_released"]
+            else:
+                a_button = constants.button_state["button_up"]
+
+        # enemy movement
+        if keys & ugame.K_UP:       
+            if enemy.y >= 0:
+                enemy.move(enemy.x, enemy.y - constants.MOVEMENT_SPEED)
+            else:
+                enemy.move(enemy.x, enemy.y + constants.MOVEMENT_SPEED)
+
+        if keys & ugame.K_DOWN:
+            if enemy.y <= constants.SCREEN_Y - constants.SPRITE_SIZE:
+                enemy.move(enemy.x, enemy.y + constants.MOVEMENT_SPEED)
+            else: 
+                enemy.move(enemy.x, constants.SCREEN_Y - constants.SPRITE_SIZE)
+
+        # update game logic
+        # play sound if A was just button_just_pressed
+        if a_button == constants.button_state["button_just_pressed"]:
+            # fire a laser, if I have enough power (have not used up all the lasers)
+            for laser_number in range(len(lasers)):
+                if lasers[laser_number].x < 0:
+                    lasers[laser_number].move(player.x, player.y)
+                    break
+
+        # each frame move the lasers, that have been fired up
+        for laser_number in range(len(lasers)):
+            if lasers[laser_number].y > 0:
+                lasers[laser_number].move(lasers[laser_number].x + constants.LASER_SPEED, lasers[laser_number].y)
+                if lasers[laser_number].x > constants.SCREEN_X:
+                    lasers[laser_number].move(constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)
+                    
+        # placeholder description            
+        for fire_ball_number in range(len(fire_balls)):
+                if fire_balls[fire_ball_number].x < 0:
+                    fire_balls[fire_ball_number].move(enemy.x, enemy.y)
+                    break
+                
+        # each frame move the fireballs, that have been fired up
+        for fire_ball_number in range(len(fire_balls)):
+            if fire_balls[fire_ball_number].y > 0:
+                fire_balls[fire_ball_number].move(fire_balls[fire_ball_number].x - constants.LASER_SPEED, fire_balls[fire_ball_number].y)
+                if fire_balls[fire_ball_number].x < 0:
+                    fire_balls[fire_ball_number].move(constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)       
+        
+        # collision detection between player's laser and the hurtbox of the enemy; if hit, lower enemy health
+        for laser_number in range(len(lasers)):
+            if lasers[laser_number].x > 0:
+                if stage.collide(lasers[laser_number].x + 6, lasers[laser_number].y + 2,
+                                lasers[laser_number].x + 11, lasers[laser_number].y + 12,
+                                enemy.x + 1, enemy.y, enemy.x + 15, enemy.y + 15):
+                        lasers[laser_number].move(constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)
+                        sound.stop()
+                        sound.play(enemy_hit)
+                        enemy_health -= 1
+                        enemy_health_text.clear() 
+                        enemy_health_text.cursor(0, 1) 
+                        enemy_health_text.move(1, 1) 
+                        enemy_health_text.text("Enemy: {0}".format(enemy_health))
+
+        
+        # collision detection between enemy's fireball and the hurtbox of the player; if hit, lower player health
+        for fire_ball_number in range(len(fire_balls)):
+            if fire_balls[fire_ball_number].x > 0:
+                if stage.collide(fire_balls[fire_ball_number].x + 6, fire_balls[fire_ball_number].y + 2,
+                                fire_balls[fire_ball_number].x + 11, fire_balls[fire_ball_number].y + 12,
+                                player.x + 1, player.y, player.x + 15, player.y + 15):
+                        fire_balls[fire_ball_number].move(constants.OFF_SCREEN_X, constants.OFF_SCREEN_Y)
+                        sound.stop()
+                        sound.play(player_hit)
+                        player_health -= 1
+                        player_health_text.clear() 
+                        player_health_text.cursor(0, 0) 
+                        player_health_text.move(1, 1) 
+                        player_health_text.text("Player: {0}".format(player_health))
+                        
+        if enemy_health <= 0: 
+            time.sleep(0.5)
+            game_over_scene_win(player_health)
+            
+        if player_health <= 0:
+            time.sleep(0.5)
+            game_over_scene_defeat(enemy_health)
+
+        # redraw sprite
+        game.render_sprites(lasers + fire_balls + [player] + [enemy])
+        game.tick() # wait until refresh rate finishes
+
+def game_over_scene_win(final_player_health):
+    # this function is the game over scene when the enemy's health is depleted
+
+    # turn off sound from last scene 
+    sound = ugame.audio
+    sound.stop()
+
+    # image banks for CircuitPython
+    image_background_assets = stage.Bank.from_bmp16("outerspace_theme.bmp")
+
+    # sets the background to image 0 in the image assets 
+    background = stage.Grid(image_background_assets, constants.SCREEN_GRID_X, constants.SCREEN_GRID_Y)
+
+    # add text objects
+    win_text_list = []
+    win_text_1 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    win_text_1.move(36, 20)
+    win_text_1.text("PLAYER: {:0>2d}".format(final_player_health))
+    win_text_list.append(win_text_1)
+
+    win_text_2 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    win_text_2.move(49, 60)
+    win_text_2.text("YOU WIN")
+    win_text_list.append(win_text_2)
+
+    win_text_3 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    win_text_3.move(32, 110)
+    win_text_3.text("PRESS SELECT")
+    win_text_list.append(win_text_3)
+
+    # create a stage for the background to show up on 
+    #  and set the frame rate to 60fps 
+    game = stage.Stage(ugame.display, constants.FPS)
+    # set the layers, items show up in order
+    game.layers = win_text_list + [background]
+    # render the background and initial location of sprite list
+    # most likely you will only render background once per scene
+    game.render_block()
+
+    # repeat forever, game loop
+    while True:
+        # get user input 
+        keys = ugame.buttons.get_pressed()
+        # Select button initiated
+        if keys & ugame.K_SELECT:
+            supervisor.reload()
+
+        # update game logic
+        game.tick() # wait until refresh rate finishes
+
+def game_over_scene_defeat(final_enemy_health):
+    # this function is the game over scene when the player's health is depleted
+
+    # turn off sound from last scene 
+    sound = ugame.audio
+    sound.stop()
+
+    # image banks for CircuitPython
+    image_background_assets = stage.Bank.from_bmp16("outerspace_theme.bmp")
+
+    # sets the background to image 0 in the image assets 
+    background = stage.Grid(image_background_assets, constants.SCREEN_GRID_X, constants.SCREEN_GRID_Y)
+
+    # add text objects
+    defeat_text_list = []
+    defeat_text_1 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    defeat_text_1.move(41, 20)
+    defeat_text_1.text("ENEMY: {:0>2d}".format(final_enemy_health))
+    defeat_text_list.append(defeat_text_1)
+
+    defeat_text_2 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    defeat_text_2.move(42, 60)
+    defeat_text_2.text("TRY AGAIN")
+    defeat_text_list.append(defeat_text_2)
+
+    defeat_text_3 = stage.Text(width = 29, height = 14, font = None, buffer = None)
+    defeat_text_3.move(32, 110)
+    defeat_text_3.text("PRESS SELECT")
+    defeat_text_list.append(defeat_text_3)
+
+    # create a stage for the background to show up on 
+    #  and set the frame rate to 60fps 
+    game = stage.Stage(ugame.display, constants.FPS)
+    # set the layers, items show up in order
+    game.layers = defeat_text_list + [background]
+    # render the background and initial location of sprite list
+    # most likely I will only render background once per scene
+    game.render_block()
+
+    # repeat forever, game loop
+    while True:
+        # getting user input 
+        keys = ugame.buttons.get_pressed()
+        # Select button initiated 
+        if keys & ugame.K_SELECT:
+            supervisor.reload()
+
+        # update game logic
+        game.tick() # wait until refresh rate finishes
+
+if __name__ == "__main__":
+    menu_scene()
