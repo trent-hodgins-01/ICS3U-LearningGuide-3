@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+#
+# Created by: Trent Hodgins
+# Created on: Nov 2021
+# This constants file is for the Lunar Trial game
+
+# PyBadge screen size is 160x128 and sprites are 16x16
+SCREEN_X = 160
+SCREEN_Y = 128
+PLAYER_X = 30
+PLAYER_Y = 85
+ENEMY_X = 145
+ENEMY_Y = 85
+SCREEN_GRID_X = 10 
+SCREEN_GRID_Y = 8 
+SPRITE_SIZE = 16 
+TOTAL_NUMBER_OF_LASERS = 168
+128
+    player_health_text.move(1, 1)
+129
+69
+130
+    player_health_text.text("Player: {0}".format(player_health))
+131
+70
+132
+    
+133
+71
+134
+    enemy_health_text = stage.Text(width = 15, height = 10)
+135
+72
+136
+    enemy_health_text.clear()
+137
+73
+138
+    enemy_health_text.cursor(0, 1)
+139
+74
+140
+    enemy_health_text.move(1, 1)
+141
+75
+142
+    enemy_health_text.text("Enemy: {0}".format(enemy_health))
+143
+76
+144
+•
+145
+77
+146
+    # image banks for CircuitPython
+147
+78
+148
+    image_background_assets = stage.Bank.from_bmp16("outerspace_theme.bmp")
+149
+79
+150
+    image_sprites_assets = stage.Bank.from_bmp16("Assets.bmp")
+151
+80
+152
+    
+153
+81
+154
+    # buttons that you want to keep state information on
+155
+82
+156
+    a_button = constants.button_state["button_up"]
+157
+83
+158
+    
+159
+84
+160
+    # get sound ready
+161
+85
+162
+    enemy_hit = open("enemyhit.wav", 'rb')
+163
+86
+164
+    player_hit = open("playerhit.wav", 'rb')
+165
+87
+166
+    sound = ugame.audio
+167
+88
+168
+    sound.stop()
+169
+89
+170
+    sound.mute(False)
+171
+90
+172
+    
+173
+91
+174
+    # set background to image 0 in the image Bank
+175
+92
+176
+    # and the side (10x8 tiles of size 16x16)
+177
+93
+178
+    background = stage.Grid(image_background_assets, constants.SCREEN_GRID_X, constants.SCREEN_GRID_Y)
+179
+94
+180
+    player = stage.Sprite(image_sprites_assets, 5, constants.PLAYER_X, constants.PLAYER_Y)
+181
+95
+182
+    enemy = stage.Sprite(image_sprites_assets, 6, constants.ENEMY_X, constants.ENEMY_Y)
+183
+96
+184
+    
+TOTAL_NUMBER_OF_FIRE_BALLS = 1
+LASER_SPEED = 2
+FIRE_BALL_SPEED = 4
+OFF_SCREEN_X = -100
+OFF_SCREEN_Y = -100
+FPS = 60
+MOVEMENT_SPEED = 2.5
+
+
+# Using for button state 
+button_state = {
+    "button_up": "up",
+    "button_just_pressed": "just pressed",
+    "button_still_pressed": "still pressed",
+    "button_released": "released"
+}
